@@ -1,6 +1,7 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"zinx/ziface"
@@ -23,46 +24,48 @@ type Server struct {
 	Port int
 }
 
+func HandleFunc(conn *net.TCPConn, data []byte, cnt int) error {
+	fmt.Println("[Conn Handle]...")
+	if _, err := conn.Write(data[:cnt]); err != nil {
+		fmt.Printf("write back buf err %s", err)
+		return errors.New("HandleFunc error")
+	}
+	return nil
+}
+
 func (server *Server) Start() {
-	fmt.Printf("[Start] Server Listener at IP: %s, Port: %d, is starting", server.IP, server.Port)
+	fmt.Printf("[Start] Server Listener at IP: %s, Port: %d, is starting\n", server.IP, server.Port)
 	go func() {
 		// 1. 获取一个 TCP 的 Addr
 		addr, err := net.ResolveTCPAddr(server.IPVersion, fmt.Sprintf("%s:%d", server.IP, server.Port))
 		if err != nil {
-			fmt.Println("resolve tcp addr error: ", err)
+			fmt.Printf("resolve tcp addr error: %s\n", err)
 			return
 		}
 
 		// 2. 监听服务器的地址
 		listener, err := net.ListenTCP(server.IPVersion, addr)
 		if err != nil {
-			fmt.Printf("listen %s error %s", server.IPVersion, err)
+			fmt.Printf("listen %s error %s\n", server.IPVersion, err)
 			return
 		}
-		fmt.Printf("start zinx server success, %s listening", server.Name)
+		fmt.Printf("start zinx server success, %s listening\n", server.Name)
 
+		var cid uint32
+		cid = 0
 		// 3. 阻塞等待客户端连接，处理客户端连接业务（读写）
 		for {
+			// 如果客户端有连接，阻塞会返回
 			conn, err := listener.AcceptTCP()
 			if err != nil {
-				fmt.Printf("listener accept error: %s", err)
+				fmt.Printf("listener accept error: %s\n", err)
 				continue
 			}
-			go func() {
-				for {
-					buf := make([]byte, 512)
-					cnt, err := conn.Read(buf)
-					if err != nil {
-						fmt.Println("read buf err: ", err)
-						continue
-					}
-					fmt.Printf("recv client buf %s, cnt: %d\n", buf, cnt)
-					if _, err := conn.Write(buf[:cnt]); err != nil {
-						fmt.Println("write back buf err: ", err)
-						continue
-					}
-				}
-			}()
+
+			connection := NewConnection(conn, cid, HandleFunc)
+			cid++
+			// 启动当前的连接业务处理
+			go connection.Start()
 		}
 	}()
 }
