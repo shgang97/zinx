@@ -22,14 +22,14 @@ type Server struct {
 	IP string
 	// 服务器监听的窗口
 	Port int
-	// 给当前的 server 添加一个 router，server 注册的连接对应的处理业务
-	Router ziface.IRouter
+	// 当前 server 的消息管理模块，用来绑定 msgId 和 router
+	MsgHandler ziface.IMsgHandler
 }
 
 func (server *Server) Start() {
 	fmt.Printf("[Zinx] is starting...\n")
-	fmt.Printf("ServerName: %s, IP: %s, Port: %d\n", utils.Config.Name, utils.Config.Host, utils.Config.TcpPort)
-	fmt.Printf("Version: %s, MaxConn: %d, MaxPackageSize: %d\n", utils.Config.Version, utils.Config.MaxConn, utils.Config.MaxPackageSize)
+	fmt.Printf("ServerName: %s, IP: %s, Port: %d\n", server.Name, server.IP, server.Port)
+	fmt.Printf("Msghandler: %s\n", server.MsgHandler)
 	go func() {
 		// 1. 获取一个 TCP 的 Addr
 		addr, err := net.ResolveTCPAddr(server.IPVersion, fmt.Sprintf("%s:%d", server.IP, server.Port))
@@ -57,7 +57,7 @@ func (server *Server) Start() {
 				continue
 			}
 
-			connection := NewConnection(conn, cid, server.Router)
+			connection := NewConnection(conn, cid, server.MsgHandler)
 			cid++
 			// 启动当前的连接业务处理
 			go connection.Start()
@@ -77,17 +77,17 @@ func (server *Server) Serve() {
 	select {}
 }
 
-func (server *Server) AddRouter(router ziface.IRouter) {
-	server.Router = router
+func (server *Server) AddRouter(msgId uint32, router ziface.IRouter) {
+	server.MsgHandler.AddRouter(msgId, router)
 }
 
 func NewServer(name string) ziface.IServer {
 	s := &Server{
-		Name:      utils.Config.Name,
-		IPVersion: "tcp4",
-		IP:        utils.Config.Host,
-		Port:      utils.Config.TcpPort,
-		Router:    nil,
+		Name:       utils.Config.Name,
+		IPVersion:  "tcp4",
+		IP:         utils.Config.Host,
+		Port:       utils.Config.TcpPort,
+		MsgHandler: NewMsgHandler(),
 	}
 	return s
 }
