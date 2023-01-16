@@ -12,4 +12,6 @@ IRequest 接口
 type IRequest interface {
 	GetConnection() IConnection // 得到当前的请求连接
 	GetData() []byte            // 得到当前的请求数据
+	GetDataLen() uint32         // 得到当前请求的数据长度
+	GetMsgId() uint32           // 得到当前请求的数据 id
 }
