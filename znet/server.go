@@ -29,7 +29,6 @@ type Server struct {
 func (server *Server) Start() {
 	fmt.Printf("[Zinx] is starting...\n")
 	fmt.Printf("ServerName: %s, IP: %s, Port: %d\n", server.Name, server.IP, server.Port)
-	fmt.Printf("Msghandler: %s\n", server.MsgHandler)
 	go func() {
 		// 1. 获取一个 TCP 的 Addr
 		addr, err := net.ResolveTCPAddr(server.IPVersion, fmt.Sprintf("%s:%d", server.IP, server.Port))
