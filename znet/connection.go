@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -77,8 +78,13 @@ func (c *Connection) StartReader() {
 			conn: c,
 			msg:  msg,
 		}
-		// 执行注册的路由方法
-		go c.MsgHandler.DoMsgHandler(&req)
+		if utils.Config.WorkerPoolSize > 0 {
+			// 已经开启工作池，将消息交给工作池进行处理
+			c.MsgHandler.SendMsgToRequestChan(&req)
+		} else {
+			// 执行注册的路由方法
+			go c.MsgHandler.DoMsgHandler(&req)
+		}
 	}
 }
 

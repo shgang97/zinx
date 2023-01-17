@@ -20,12 +20,14 @@ var Config *GlobalConfig
 func init() {
 	// 全局默认配置
 	Config = &GlobalConfig{
-		Host:           "0.0.0.0",
-		TcpPort:        8999,
-		Name:           "ZinxServerApp",
-		Version:        "V1.0",
-		MaxConn:        1000,
-		MaxPackageSize: 4096,
+		Host:             "0.0.0.0",
+		TcpPort:          8999,
+		Name:             "ZinxServerApp",
+		Version:          "V1.0",
+		MaxConn:          1000,
+		MaxPackageSize:   4096,
+		WorkerPoolSize:   10,
+		MaxWorkerTaskLen: 1024,
 	}
 	// 自定义全局配置
 	Config.ReLoad()
@@ -55,7 +57,9 @@ type GlobalConfig struct {
 	/*
 		Zinx
 	*/
-	Version        string // 当前 Zinx 版本号
-	MaxConn        int    // 当前服务主机允许的最大连接数
-	MaxPackageSize uint32 // 当前 Zinx 框架数据包的最大值
+	Version          string // 当前 Zinx 版本号
+	MaxConn          int    // 当前服务主机允许的最大连接数
+	MaxPackageSize   uint32 // 当前 Zinx 框架数据包的最大值
+	WorkerPoolSize   uint32 // 当前业务工作 worker 池的 goroutine 数量
+	MaxWorkerTaskLen uint32 // Zinx框架允许用户最多开辟多少个worker
 }

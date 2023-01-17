@@ -30,6 +30,8 @@ func (server *Server) Start() {
 	fmt.Printf("[Zinx] is starting...\n")
 	fmt.Printf("ServerName: %s, IP: %s, Port: %d\n", server.Name, server.IP, server.Port)
 	go func() {
+		// 0. 开启消息队列及 worker 工作池
+		server.MsgHandler.StartWorkerPool()
 		// 1. 获取一个 TCP 的 Addr
 		addr, err := net.ResolveTCPAddr(server.IPVersion, fmt.Sprintf("%s:%d", server.IP, server.Port))
 		if err != nil {
