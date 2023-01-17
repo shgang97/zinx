@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"zinx/utils"
 	"zinx/ziface"
 )
@@ -30,6 +31,31 @@ type Connection struct {
 	MsgChan chan []byte
 	// 该连接处理的方法 router
 	MsgHandler ziface.IMsgHandler
+	// 连接属性集合
+	properties map[string]interface{}
+	// 保护连接属性集合的锁
+	propLock sync.RWMutex
+}
+
+func (c *Connection) SetProperty(propName string, property interface{}) {
+	c.propLock.Lock()
+	defer c.propLock.Unlock()
+	c.properties[propName] = property
+}
+
+func (c *Connection) GetProperty(propName string) (interface{}, error) {
+	c.propLock.RLock()
+	defer c.propLock.RUnlock()
+	if property, ok := c.properties[propName]; ok {
+		return property, nil
+	}
+	return nil, errors.New(fmt.Sprintf("property[%s] not FOUND", propName))
+}
+
+func (c *Connection) RemoveProperty(propName string) {
+	c.propLock.Lock()
+	defer c.propLock.Unlock()
+	delete(c.properties, propName)
 }
 
 func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, handler ziface.IMsgHandler) *Connection {
@@ -41,6 +67,7 @@ func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, hand
 		MsgChan:    make(chan []byte),
 		ExitChan:   make(chan bool, 1),
 		MsgHandler: handler,
+		properties: make(map[string]interface{}),
 	}
 	server.GetConnMgr().Add(c)
 	return c
