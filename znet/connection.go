@@ -16,6 +16,8 @@ import (
 */
 
 type Connection struct {
+	// 连接所在的 server
+	TcpServer ziface.IServer
 	// 当前连接 socket tcp 套接字
 	Conn *net.TCPConn
 	// 连接的 ID
@@ -30,8 +32,9 @@ type Connection struct {
 	MsgHandler ziface.IMsgHandler
 }
 
-func NewConnection(conn *net.TCPConn, connID uint32, handler ziface.IMsgHandler) *Connection {
+func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, handler ziface.IMsgHandler) *Connection {
 	c := &Connection{
+		TcpServer:  server,
 		Conn:       conn,
 		ConnID:     connID,
 		IsClosed:   false,
@@ -39,6 +42,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, handler ziface.IMsgHandler)
 		ExitChan:   make(chan bool, 1),
 		MsgHandler: handler,
 	}
+	server.GetConnMgr().Add(c)
 	return c
 }
 
@@ -114,6 +118,7 @@ func (c *Connection) Start() {
 	go c.StartReader()
 	// 启动当前连接的写数据业务
 	go c.StartWriter()
+	c.TcpServer.CallOnConnStart(c)
 }
 
 func (c *Connection) Stop() {
@@ -122,11 +127,15 @@ func (c *Connection) Stop() {
 		return
 	}
 	c.IsClosed = true
+	// 调用连接销毁之前的 hook 方法
+	c.TcpServer.CallOnConnStop(c)
 	// 关闭 socket 连接
 	err := c.Conn.Close()
 	if err != nil {
 		return
 	}
+	// 将 conn 从连接管理器中移除
+	c.TcpServer.GetConnMgr().Remove(c)
 	// 告知 writer 关闭
 	c.ExitChan <- true
 	// 回收资源

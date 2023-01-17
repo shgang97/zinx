@@ -24,6 +24,38 @@ type Server struct {
 	Port int
 	// 当前 server 的消息管理模块，用来绑定 msgId 和 router
 	MsgHandler ziface.IMsgHandler
+	// 连接管理器
+	ConnManager ziface.IConnManager
+	// 连接建立之后自动调用的 Hook 函数——OnConnStart
+	OnConnStart func(connection ziface.IConnection)
+	// 连接销毁之前自动调用的 Hook 函数——OnConnStart
+	OnConnStop func(connection ziface.IConnection)
+}
+
+func (server *Server) SetOnConnStart(onStartFunc func(connection ziface.IConnection)) {
+	server.OnConnStart = onStartFunc
+}
+
+func (server *Server) SetOnConnStop(onStopFunc func(connection ziface.IConnection)) {
+	server.OnConnStop = onStopFunc
+}
+
+func (server *Server) CallOnConnStart(conn ziface.IConnection) {
+	if server.OnConnStart != nil {
+		fmt.Printf("conn[%d] has created\n", conn.GetConnID())
+		server.OnConnStart(conn)
+	}
+}
+
+func (server *Server) CallOnConnStop(conn ziface.IConnection) {
+	if server.OnConnStop != nil {
+		fmt.Printf("conn[%d] is being destroyed\n", conn.GetConnID())
+		server.OnConnStop(conn)
+	}
+}
+
+func (server *Server) GetConnMgr() ziface.IConnManager {
+	return server.ConnManager
 }
 
 func (server *Server) Start() {
@@ -57,8 +89,13 @@ func (server *Server) Start() {
 				fmt.Printf("listener accept error: %s\n", err)
 				continue
 			}
-
-			connection := NewConnection(conn, cid, server.MsgHandler)
+			// 判断是否超过最大连接数
+			if server.ConnManager.Size() >= utils.Config.MaxConn {
+				fmt.Printf("the number of connection exceeded the maxconn=%d\n", utils.Config.MaxConn)
+				conn.Close()
+				continue
+			}
+			connection := NewConnection(server, conn, cid, server.MsgHandler)
 			cid++
 			// 启动当前的连接业务处理
 			go connection.Start()
@@ -67,13 +104,13 @@ func (server *Server) Start() {
 }
 
 func (server *Server) Stop() {
-	// TODO
+	fmt.Printf("[Zinx is stoping\n")
+	server.ConnManager.Clear()
 }
 
 func (server *Server) Serve() {
 	// 启动 server 的服务器功能
 	server.Start()
-	// TODO 做一些自动服务器之后的额外业务
 	// 阻塞状态
 	select {}
 }
@@ -84,11 +121,12 @@ func (server *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 
 func NewServer(name string) ziface.IServer {
 	s := &Server{
-		Name:       utils.Config.Name,
-		IPVersion:  "tcp4",
-		IP:         utils.Config.Host,
-		Port:       utils.Config.TcpPort,
-		MsgHandler: NewMsgHandler(),
+		Name:        utils.Config.Name,
+		IPVersion:   "tcp4",
+		IP:          utils.Config.Host,
+		Port:        utils.Config.TcpPort,
+		MsgHandler:  NewMsgHandler(),
+		ConnManager: NewConnManager(),
 	}
 	return s
 }
